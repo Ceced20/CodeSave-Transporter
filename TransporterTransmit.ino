@@ -27,6 +27,20 @@ typedef struct struct_message {
 // Create a struct_message called joystickData
 struct_message joystickData;
 
+// Mathematical function to map values to power
+int mapToPower(int value, int maxpower) {
+  int midpoint = 2048;
+  float powerRange = maxpower; // The range of power values from 0 to +maxpower
+  float scaledValue = ((float)value - midpoint) / midpoint; // Scale the input value to range from -1 to +1
+  return (int)(scaledValue * powerRange); // Map the scaled value to the power range
+}
+
+// Convert negative values to positive using abs()
+int absMappedValue(int value, int maxpower) {
+  int mappedValue = mapToPower(value, maxpower);
+  return abs(mappedValue);
+}
+
 esp_now_peer_info_t peerInfo;
 
 // Callback when data is sent
@@ -76,15 +90,18 @@ void loop() {
   int xValue2 = analogRead(joystick2_x);
   int yValue2 = analogRead(joystick2_y);
 
+  // Map joystick values to power
+  joystickData.joystick1_x_value = absMappedValue(xValue1, 100);
+  joystickData.joystick1_y_value = absMappedValue(yValue1, 100);
+  joystickData.joystick2_x_value = absMappedValue(xValue2, 100);
+  joystickData.joystick2_y_value = absMappedValue(yValue2, 100);
+
   // Check if joystick 1 has moved significantly
   if (abs(xValue1 - last_x_value1) > 10 || abs(yValue1 - last_y_value1) > 10) {
     Serial.print("Joystick 1 moved: x=");
-    Serial.print(xValue1);
+    Serial.print(joystickData.joystick1_x_value);
     Serial.print(", y=");
-    Serial.println(yValue1);
-
-    joystickData.joystick1_x_value = xValue1;
-    joystickData.joystick1_y_value = yValue1;
+    Serial.println(joystickData.joystick1_y_value);
     last_x_value1 = xValue1;
     last_y_value1 = yValue1;
   }
@@ -92,12 +109,9 @@ void loop() {
   // Check if joystick 2 has moved significantly
   if (abs(xValue2 - last_x_value2) > 10 || abs(yValue2 - last_y_value2) > 10) {
     Serial.print("Joystick 2 moved: x=");
-    Serial.print(xValue2);
+    Serial.print(joystickData.joystick2_x_value);
     Serial.print(", y=");
-    Serial.println(yValue2);
-
-    joystickData.joystick2_x_value = xValue2;
-    joystickData.joystick2_y_value = yValue2;
+    Serial.println(joystickData.joystick2_y_value);
     last_x_value2 = xValue2;
     last_y_value2 = yValue2;
   }
