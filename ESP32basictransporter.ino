@@ -1,85 +1,115 @@
-#include <driver/mcpwm.h>
+#include <esp_now.h>
+#include <WiFi.h>
 
-#define  M1Forward 32
-#define  M1Backward 33
-#define  M2Forward 18
-#define  M2Backward 19
+// Define joystick pins
+#define joystick1_x 32
+#define joystick1_y 33
+#define joystick2_x 35
+#define joystick2_y 34
 
-// Define Variables
-int speed1 = 0;
-int speed2 = 0;
-int ch0, ch1, ch2, ch3, ch6;
+// State variables for joystick positions
+int last_x_value1 = 512;
+int last_y_value1 = 512;
+int last_x_value2 = 512;
+int last_y_value2 = 512;
+
+// Receiver MAC Address
+uint8_t broadcastAddress[] = {0xCC, 0x7B, 0x5C, 0x26, 0xCC, 0xB4};
+
+// Structure to send data
+typedef struct struct_message {
+  int joystick1_x_value;
+  int joystick1_y_value;
+  int joystick2_x_value;
+  int joystick2_y_value;
+} struct_message;
+
+// Create a struct_message called joystickData
+struct_message joystickData;
+
+esp_now_peer_info_t peerInfo;
+
+// Callback when data is sent
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  Serial.print("\r\nLast Packet Send Status:\t");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+}
 
 void setup() {
-  Serial.begin(9600);
-  pinMode(M1Forward, OUTPUT);
-  pinMode(M1Backward, OUTPUT);
-  pinMode(M2Forward, OUTPUT);
-  pinMode(M2Backward, OUTPUT);
-  // Initialize MCPWM
+  // Init Serial Monitor
+  Serial.begin(115200);
 
-  mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, M1Forward);
-  mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0B, M1Backward);
-  mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM1A, M2Forward);
-  mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM1B, M2Backward);
+  // Set up joystick pins
+  pinMode(joystick1_x, INPUT);
+  pinMode(joystick1_y, INPUT);
+  pinMode(joystick2_x, INPUT);
+  pinMode(joystick2_y, INPUT);
 
-  mcpwm_config_t pwm_config;
-  pwm_config.frequency = 1000; // Set the frequency of the PWM signal
-  pwm_config.cmpr_a = 0; // Set the duty cycle of the PWM signal
-  pwm_config.cmpr_b = 0; // Set the duty cycle of the PWM signal
-  pwm_config.counter_mode = MCPWM_UP_COUNTER;
-  pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
+  // Set device as a Wi-Fi Station
+  WiFi.mode(WIFI_STA);
 
-  mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);
-  mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_1, &pwm_config);
-  mcpwm_start(MCPWM_UNIT_0, MCPWM_TIMER_0);
-  mcpwm_start(MCPWM_UNIT_0, MCPWM_TIMER_1);
+  // Init ESP-NOW
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
 
+  // Register send callback
+  esp_now_register_send_cb(OnDataSent);
+
+  // Register peer
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+
+  // Add peer
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    return;
+  }
 }
 
 void loop() {
-  if (Serial.available() > 0) {
-    ch0 = Serial.read();
-    if (ch0 == 'W' || ch0 == 'w') {
-      // Move Forward
-      speed1 = 100;
-      speed2 = 100;
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, speed1);
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, 0);
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, speed2);
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, 0);
-    } else if (ch0 == 'S' || ch0 == 's') {
-      // Move Backward
-      speed1 = 100;
-      speed2 = 100;
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 0);
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, speed1);
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, 0);
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, speed2);
-    } else if (ch0 == 'A' || ch0 == 'a') {
-      // Turn Left
-      speed1 = 100;
-      speed2 = 0;
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, speed1);
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, 0);
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, 0);
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, speed2);
-    } else if (ch0 == 'D' || ch0 == 'd') {
-      // Turn Right
-      speed1 = 0;
-      speed2 = 100;
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, speed1);
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, 0);
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, speed2);
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, 0);
-    } else if (ch0 == 'X' || ch0 == 'x') {
-      // Stop
-      speed1 = 0;
-      speed2 = 0;
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, speed1);
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, 0);
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, speed2);
-      mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, 0);
-    }
+  // Read joystick values
+  int xValue1 = analogRead(joystick1_x);
+  int yValue1 = analogRead(joystick1_y);
+  int xValue2 = analogRead(joystick2_x);
+  int yValue2 = analogRead(joystick2_y);
+
+  // Check if joystick 1 has moved significantly
+  if (abs(xValue1 - last_x_value1) > 10 || abs(yValue1 - last_y_value1) > 10) {
+    Serial.print("Joystick 1 moved: x=");
+    Serial.print(xValue1);
+    Serial.print(", y=");
+    Serial.println(yValue1);
+
+    joystickData.joystick1_x_value = xValue1;
+    joystickData.joystick1_y_value = yValue1;
+    last_x_value1 = xValue1;
+    last_y_value1 = yValue1;
   }
+
+  // Check if joystick 2 has moved significantly
+  if (abs(xValue2 - last_x_value2) > 10 || abs(yValue2 - last_y_value2) > 10) {
+    Serial.print("Joystick 2 moved: x=");
+    Serial.print(xValue2);
+    Serial.print(", y=");
+    Serial.println(yValue2);
+
+    joystickData.joystick2_x_value = xValue2;
+    joystickData.joystick2_y_value = yValue2;
+    last_x_value2 = xValue2;
+    last_y_value2 = yValue2;
+  }
+
+  // Send joystick data via ESP-NOW
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &joystickData, sizeof(joystickData));
+
+  if (result == ESP_OK) {
+    Serial.println("Sent with success");
+  } else {
+    Serial.println("Error sending the data");
+  }
+
+  delay(50); // Send data at 20Hz
 }
