@@ -11,3 +11,6 @@ Tombol 2 untuk menurunkan Lengan Capitan
 
 Tombol 3 untuk capitan (1x click nyapit, click lagi membuka capit) ((Ide tambahan : pas lagi nyapit tengah tengah kalau di click lagi di batalkan))
 
+# Rumus maju 
+
+(Value - 2048) / 2048
