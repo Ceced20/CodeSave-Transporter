@@ -13,4 +13,4 @@ Tombol 3 untuk capitan (1x click nyapit, click lagi membuka capit) ((Ide tambaha
 
 # Rumus maju 
 
-(Value - 2048) / 2048
+((Value - 2048) / 2048 )* 100
