@@ -10,7 +10,10 @@
 #define button2 13
 #define button3 27
 //tombol-tombol active low
-
+int CenterX1;
+int CenterY1;
+int CenterX2;
+int CenterY2;
 // State variables for joystick positions
 int last_x_value1 = 512;
 int last_y_value1 = 512;
@@ -18,7 +21,7 @@ int last_x_value2 = 512;
 int last_y_value2 = 512;
 int b3state = 0;
 // Receiver MAC Address
-uint8_t broadcastAddress[] = {0xCC, 0x7B, 0x5C, 0x26, 0xCC, 0xB4};
+uint8_t broadcastAddress[] = { 0xCC, 0x7B, 0x5C, 0x26, 0xCC, 0xB4 };
 
 // Structure to send data
 typedef struct struct_message {
@@ -38,7 +41,6 @@ int mapToPower(int value, int maxpower) {
   float powerRange = maxpower;
   float scaledValue = ((float)value - midpoint) / midpoint;
   return (int)(scaledValue * maxpower);
-
 }
 
 
@@ -82,23 +84,27 @@ void setup() {
     Serial.println("Failed to add peer");
     return;
   }
+   CenterX1 = analogRead(joystick1_x);
+   CenterY1 = analogRead(joystick1_y);
+   CenterX2 = analogRead(joystick2_x);
+   CenterY2 = analogRead(joystick2_y);
 }
 
 void loop() {
   // Read joystick values
-  int xValue1 = analogRead(joystick1_x);
-  int yValue1 = 4095-analogRead(joystick1_y);
-  int xValue2 = analogRead(joystick2_x);
-  int yValue2 = 4095-analogRead(joystick2_y);
+  int xValue1 = analogRead(joystick1_x)-(CenterX1-2048);
+  int yValue1 = 4095 - (analogRead(joystick1_y)-(CenterY1-2048));
+  int xValue2 = analogRead(joystick2_x)-(CenterX2-2048);
+  int yValue2 = 4095 - (analogRead(joystick2_y)-(CenterY2-2048));
 
   // Map joystick values to power
-  int scaledValueX = mapToPower(xValue1, 100);
-  int scaledValueY = mapToPower(yValue1, 100);
-  joystickData.M1 = (scaledValueX / 2)  + scaledValueY;
+  int scaledValueX = mapToPower(xValue1, 125);
+  int scaledValueY = mapToPower(yValue1, 125);
+  joystickData.M1 = (scaledValueX / 2) + scaledValueY;
   joystickData.M2 = (-scaledValueX / 2) + scaledValueY;
-  joystickData.M1 = constrain(joystickData.M1, -100,100);
-  joystickData.M2 = constrain(joystickData.M2, -100,100);
-  if (digitalRead(button1) == LOW ) {
+  joystickData.M1 = constrain(joystickData.M1, -100, 100);
+  joystickData.M2 = constrain(joystickData.M2, -100, 100);
+  if (digitalRead(button1) == LOW) {
     joystickData.servoA = 180;
   }
 
@@ -107,35 +113,58 @@ void loop() {
   }
 
   if (digitalRead(button3) == LOW) {
-    if (b3state == 0) { //sebelumnya tidak ditekan
-      b3state = 1; //catat keadaan sekarang supaya tidak mengulang
+    if (b3state == 0) {  //sebelumnya tidak ditekan
+      b3state = 1;       //catat keadaan sekarang supaya tidak mengulang
       if (joystickData.servoC == 140) {
         joystickData.servoC = 20;
-      }
-      else {
+      } else {
         joystickData.servoC = 140;
       }
     }
-  }
-  else { //kalau button tidak ditekan
+  } else {  //kalau button tidak ditekan
     b3state = 0;
   }
   //joystick2 mapping value
 
   scaledValueX = mapToPower(xValue2, 180);
   scaledValueY = mapToPower(yValue2, 180);
-  joystickData.servoS = atan2(scaledValueY, -scaledValueX) * 57.29578 + 90;
-  Serial.print(xValue1);Serial.print(",");
-  Serial.print(yValue1);Serial.print(",");
-  Serial.print(xValue2);Serial.print(",");
-  Serial.print(yValue2);Serial.print(",   ");
-  Serial.print(joystickData.M1);Serial.print(",");
-  Serial.print(joystickData.M2);Serial.print(",");
-  Serial.print(joystickData.servoA);Serial.print(",");
-  Serial.print(joystickData.servoC);Serial.print(",");
-  Serial.print(joystickData.servoS);Serial.println();
+  if (abs(scaledValueX) < 10 && abs(scaledValueY) < 10) {
+    //joystick center, servo ke 90 derajat
+    joystickData.servoS = 90;
+  } else if (scaledValueY >= 0) {
+    joystickData.servoS = atan2(scaledValueY, -scaledValueX) * 57.29578;
+  } else {
+    joystickData.servoS = atan2(-scaledValueY, -scaledValueX) * 57.29578;
+  }
 
-/*
+  
+  Serial.print(xValue1);
+  Serial.print(",");
+  Serial.print(yValue1);
+  Serial.print(",");
+  Serial.print(xValue2);
+  Serial.print(",");
+  Serial.print(yValue2);
+  Serial.print(",   ");
+  Serial.print(joystickData.M1);
+  Serial.print(",");
+  Serial.print(joystickData.M2);
+  Serial.print(",");
+  Serial.print(joystickData.servoA);
+  Serial.print(",");
+  Serial.print(joystickData.servoC);
+  Serial.print(", xy=");
+  Serial.print(scaledValueX);
+  Serial.print(",");
+  Serial.print(scaledValueY);
+  Serial.print(",s=");
+
+  Serial.print(joystickData.servoS);
+  Serial.println();
+
+  
+
+  /*
   // Check if joystick 1 has moved significantly
   if (abs(xValue1 - last_x_value1) > 10 || abs(yValue1 - last_y_value1) > 10) {
     Serial.print("Joystick 1 moved: x=");
@@ -155,13 +184,13 @@ void loop() {
   }
 */
   // Send joystick data via ESP-NOW
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &joystickData, sizeof(joystickData));
-/*
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&joystickData, sizeof(joystickData));
+  /*
   if (result == ESP_OK) {
     Serial.println("Sent with success");
   } else {
     //Serial.println("Error sending the data");
   }
 */
-  delay(50); // Send data at 20Hz
+  delay(50);  // Send data at 20Hz
 }
