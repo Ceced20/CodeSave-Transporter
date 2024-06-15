@@ -5,22 +5,59 @@
 #include <ESP32Servo.h>
 
 // Define motor pins
-#define MOTOR_RIGHT_PWM 18
-#define MOTOR_RIGHT_DIR 5
-#define MOTOR_LEFT_PWM 18
-#define MOTOR_LEFT_DIR 5
+#define m1kanan 32
+#define m2kanan 33
+#define m1kiri 18
+#define m2kiri 19
+#define PIN_SJEPIT 16
+#define PIN_SANGKAT 17
+#define PIN_SSETIR 5
 
-void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len);
+typedef struct struct_message {
+  int M1;
+  int M2;
+  int servoA;
+  int servoC;
+  int servoS;
+} struct_message;
 
+// Create a struct_message to hold incoming data
+struct_message joystickData;
+Servo sjepit, sangkat, ssetir;
+// Callback function executed when data is received
+void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
+  // Cast the incomingData pointer to the correct struct_message type
+  const struct_message *data = reinterpret_cast<const struct_message *>(incomingData);
+  //motor 1
+  int p = data->M1;
+  if (p >= 0) {  //maju
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, p);
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, 0);
+  } else {  //mundur
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 0);
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, p);
+  }
+  p = data->M2;
+  if (p >= 0) {  //maju
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, p);
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, 0);
+  } else {  //mundur
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, 0);
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, p);
+  }
+  sjepit.write(data->servoC);
+  sangkat.write(data->servoA);
+  ssetir.write(data->servoS);
+}
 void setup() {
   Serial.begin(115200);
-  
+
   // Initialize WiFi in Station mode
   WiFi.mode(WIFI_STA);
   Serial.println("ESPNow Receiver");
-  
+
   // Initialize ESP-NOW
-  if (esp_now_init()!= ESP_OK) {
+  if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
     return;
   }
@@ -30,37 +67,30 @@ void setup() {
 
   // Initialize MCPWM
   mcpwm_initialize();
-}
 
-void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
-  // Handle received data
-  Serial.print("Bytes received: ");
-  Serial.println(len);
-  
-  // Add code here to process received data
-  // For example, let's assume the received data is a motor speed command
-  int motor;
-  float speed;
-  memcpy(&motor, data, sizeof(int));
-  memcpy(&speed, data + sizeof(int), sizeof(float));
-  set_motor_speed(motor, speed);
+  //attach servo pins
+sjepit.attach(PIN_SJEPIT);
+sangkat.attach(PIN_SANGKAT);
+ssetir.attach(PIN_SSETIR);
 }
+  //servowrite
+
 
 void mcpwm_initialize() {
   // Initialize GPIO for MCPWM
-  gpio_config_t io_conf;
-  io_conf.intr_type = GPIO_INTR_DISABLE;
-  io_conf.mode = GPIO_MODE_OUTPUT;
-  io_conf.pin_bit_mask = (1ULL << MOTOR_RIGHT_PWM) | (1ULL << MOTOR_LEFT_PWM);
-  gpio_config(&io_conf);
+  mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, m1kanan);
+  mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0B, m2kanan);
+  mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM1A, m1kiri);
+  mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM1B, m2kiri);
+
 
   // Configure MCPWM
   mcpwm_config_t conf;
-  conf.frequency = 1000;    // Frequency = 1kHz
-  conf.cmpr_a = 0;          // Duty cycle of PWMxA = 0
-  conf.cmpr_b = 0;          // Duty cycle of PWMxB = 0
+  conf.frequency = 1000;  // Frequency = 1kHz
+  conf.cmpr_a = 0;        // Duty cycle of PWMxA = 0
+  conf.cmpr_b = 0;        // Duty cycle of PWMxB = 0
   conf.counter_mode = MCPWM_UP_COUNTER;
-  conf.duty_mode = MCPWM_DUTY_MODE_0; 
+  conf.duty_mode = MCPWM_DUTY_MODE_0;
 
   // Initialize MCPWM0A and MCPWM1A with above settings
   mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &conf);
@@ -71,17 +101,7 @@ void mcpwm_initialize() {
   mcpwm_start(MCPWM_UNIT_0, MCPWM_TIMER_1);
 }
 
-void set_motor_speed(int motor, float speed) {
-  if (motor == 0) {
-    // Set right motor direction and speed
-    gpio_set_level(MOTOR_RIGHT_DIR, speed >= 0? 0 : 1);
-    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, abs(speed) * 100);
-  } else {
-    // Set left motor direction and speed
-    gpio_set_level(MOTOR_LEFT_DIR, speed >= 0? 0 : 1);
-    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, abs(speed) * 100);
-  }
-}
+
 
 void loop() {
   // Main loop logic
