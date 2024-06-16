@@ -12,6 +12,8 @@
 #define PIN_SJEPIT 16
 #define PIN_SANGKAT 17
 #define PIN_SSETIR 5
+#define PIN_LED 2
+#define TIMEOUT 500
 
 typedef struct struct_message {
   int M1;
@@ -23,9 +25,19 @@ typedef struct struct_message {
 
 // Create a struct_message to hold incoming data
 struct_message joystickData;
+
+//deklarasi servo
 Servo sjepit, sangkat, ssetir;
+
+//variabel-variabel
+long t=0, tlastrecv=0;
+
 // Callback function executed when data is received
+//untuk versi 5.1.4 ke atas:
+//void OnDataRecv(const esp_now_peer_info *info, const uint8_t *incomingData, int len) {
+//untuk versi 5.0.6 ke bawah:
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
+  ledon();
   // Cast the incomingData pointer to the correct struct_message type
   const struct_message *data = reinterpret_cast<const struct_message *>(incomingData);
   //motor 1
@@ -48,10 +60,21 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   sjepit.write(data->servoC);
   sangkat.write(data->servoA);
   ssetir.write(data->servoS);
+  //catat waktu terakhir receive
+  tlastrecv = t;
 }
+
+void ledon(){
+  digitalWrite(PIN_LED,HIGH);
+}
+void ledoff(){
+  digitalWrite(PIN_LED,LOW);
+}
+
 void setup() {
   Serial.begin(115200);
-
+  pinMode(PIN_LED,OUTPUT);
+  ledoff();
   // Initialize WiFi in Station mode
   WiFi.mode(WIFI_STA);
   Serial.println("ESPNow Receiver");
@@ -105,4 +128,15 @@ void mcpwm_initialize() {
 
 void loop() {
   // Main loop logic
+  t = millis();
+  //kalau komunikasi putus atau tidak ada data yang diterima setelah sekian lama, matikan motor
+  if(t-tlastrecv > TIMEOUT){
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 0);
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, 0);
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, 0);
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, 0);
+  }
+  else if(t-tlastrecv > 2){ //matikan LED sesudah 2 ms sejak terakhir recv
+    ledoff();
+  }
 }
