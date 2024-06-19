@@ -47,7 +47,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, 0);
   } else {  //mundur
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 0);
-    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, p);
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, -p);
   }
   p = data->M2;
   if (p >= 0) {  //maju
@@ -55,7 +55,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, 0);
   } else {  //mundur
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, 0);
-    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, p);
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, -p);
   }
   sjepit.write(data->servoC);
   sangkat.write(data->servoA);
