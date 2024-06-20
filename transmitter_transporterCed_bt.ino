@@ -25,6 +25,7 @@ bool connected = false;
 BluetoothSerial btserial;
 // Structure to send data
 typedef struct struct_message {
+  uint16_t headerbytes;
   int M1;
   int M2;
   int servoA;
@@ -89,11 +90,11 @@ void loop() {
     joystickData.M1 = constrain(joystickData.M1, -100, 100);
     joystickData.M2 = constrain(joystickData.M2, -100, 100);
     if (digitalRead(button1) == LOW ) {
-      joystickData.servoA = 180;
+      joystickData.servoA = 0;
     }
 
     if (digitalRead(button2) == LOW) {
-      joystickData.servoA = 0;
+      joystickData.servoA = 180;
     }
 
     if (digitalRead(button3) == LOW) {
@@ -145,7 +146,9 @@ void loop() {
       }
     */
     // Send joystick data via bluetooth
-    btserial.println(joystickData.M1);
+    joystickData.headerbytes = 0x2655;
+    //btserial.println(joystickData.M1);
+    btserial.write((uint8_t*) &joystickData, sizeof(joystickData));
     /*
       if (result == ESP_OK) {
         Serial.println("Sent with success");
