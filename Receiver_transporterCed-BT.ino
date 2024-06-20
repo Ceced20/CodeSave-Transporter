@@ -133,12 +133,12 @@ void loop() {
     received[nbytesreceived] = c;
     nbytesreceived++;
     if(nbytesreceived==1){
-      if(!(received[0]==0x26)){
+      if(!(received[0]==0x55)){ //urutan byte 0x2655 terkirim 55 dulu baru 26 (little endian)
         nbytesreceived=0;
       }
     }
     else if (nbytesreceived==2){
-      if(!(received[1]==0x55)){ 
+      if(!(received[1]==0x26)){ 
         nbytesreceived=0;
       }
     }
@@ -150,7 +150,13 @@ void loop() {
       //satu packet sudah diterima
       Serial.print(joystickData.M1);
       Serial.print(',');
-      Serial.println(joystickData.M2);
+      Serial.print(joystickData.M2);
+      Serial.print(',');
+      Serial.print(joystickData.servoA);
+      Serial.print(',');
+      Serial.print(joystickData.servoC);
+      Serial.print(',');
+      Serial.println(joystickData.servoS);
     }
   }
   if(t-tlastrecv > TIMEOUT){
