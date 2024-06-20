@@ -34,7 +34,7 @@ long t=0, tlastrecv=0;
 
 // Callback function executed when data is received
 //untuk versi 5.1.4 ke atas:
-//void OnDataRecv(const esp_now_peer_info *info, const uint8_t *incomingData, int len) {
+//void OnDataRecv(const esp_now_recv_info *info, const uint8_t *incomingData, int len) {
 //untuk versi 5.0.6 ke bawah:
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   ledon();
