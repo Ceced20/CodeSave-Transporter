@@ -1,5 +1,5 @@
 #include <BluetoothSerial.h>
-
+#include<esp_bt.h>
 // Define joystick pins
 #define joystick2_x 32
 #define joystick2_y 33
@@ -25,14 +25,16 @@ int lastValueY = 0;
 int b3state = 0;
 long t = 0, tlastsend = 0;
 int interval = 50;
-int yaccel = 50;
-int ydecel = 50;
+int yaccelfwd = 20;
+int ydecelfwd = 100;
+int yaccelrev = 10;
+int ydecelrev = 100;
 int xValue1 = 0;
 int yValue1 = 0;
 int xValue2 = 0;
 int yValue2 = 0;
 // Receiver MAC Address
-uint8_t recvAddress[] = {0xCC, 0x7B, 0x5C, 0x26, 0xCC, 0xB6};
+uint8_t recvAddress[] = { 0xCC, 0x7B, 0x5C, 0x26, 0xCC, 0xB6 };
 const char pin[] = "1234";
 String transmitter_btname = "BT-Transmitter";
 bool connected = false;
@@ -104,6 +106,7 @@ void setup() {
   Serial.println("init bluetooth...");
   btserial.begin(transmitter_btname, true);
   btserial.setPin(pin);
+  esp_power_level_t(ESP_PWR_LVL_P9);
   center();
   xValue1 = 2048;
   yValue1 = 2048;
@@ -144,32 +147,43 @@ void loop() {
     yValue2 = (7 * yValue2 + newyValue2) / 8;
     // Map joystick values to power
     if (t - tlastsend >= interval) {
+      ledon();
       tlastsend = t;
       // Map joystick values to power
       int scaledValueX = mapToPower(xValue1, 125);
       int scaledValueY = mapToPower(yValue1, 125);
-      //batasi laju perubahan kecepatan dengan nilai yaccel
-      if (scaledValueY >= 0) { //gerak maju
-        if (scaledValueY > lastValueY) { //perubahan power positif
-          if (scaledValueY - lastValueY > yaccel) { //perubahannya besar
-            scaledValueY = lastValueY + yaccel;
-          }
-        }
-        else { //perubahan power negatif, melambat
-          if (lastValueY - scaledValueY > ydecel) {
-            scaledValueY = lastValueY - ydecel;
-          }
-        }
+      //discretization
+      //dari 0 sampai 40 menghasilkan kecepatan 20
+      //dari 40-99 menghasilkan kecepatan 40
+      //untuk 100 baru kecepatannya 100
+      if (scaledValueY > 0) {
+        if (scaledValueY <= 40) scaledValueY = 20;
+        else if (scaledValueY <= 99) scaledValueY = 40;
+        else scaledValueY = 100;
+      } else if (scaledValueY < 0) {
+        if (scaledValueY >= -40) scaledValueY = -20;
+        else if (scaledValueY >= -99) scaledValueY = -40;
+        else scaledValueY = -100;
       }
-      else { //gerak mundur
-        if (scaledValueY < lastValueY) { //makin negatif = makin cepat tapi mundur
-          if (lastValueY - scaledValueY > yaccel) {
-            scaledValueY = lastValueY - yaccel;
+      //batasi laju perubahan kecepatan dengan nilai yaccel
+      if (scaledValueY >= 0) {                          //gerak maju
+        if (scaledValueY > lastValueY) {                //perubahan power positif
+          if (scaledValueY - lastValueY > yaccelfwd) {  //perubahannya besar
+            scaledValueY = lastValueY + yaccelfwd;
+          }
+        } else {  //perubahan power negatif, melambat
+          if (lastValueY - scaledValueY > ydecelfwd) {
+            scaledValueY = lastValueY - ydecelfwd;
           }
         }
-        else { //power negatif tapi betambah menuju 0 = mundur melambat
-          if (scaledValueY - lastValueY > ydecel) {
-            scaledValueY = lastValueY + ydecel;
+      } else {                            //gerak mundur
+        if (scaledValueY < lastValueY) {  //makin negatif = makin cepat tapi mundur
+          if (lastValueY - scaledValueY > yaccelrev) {
+            scaledValueY = lastValueY - yaccelrev;
+          }
+        } else {  //power negatif tapi bertambah menuju 0 = mundur melambat
+          if (scaledValueY - lastValueY > ydecelrev) {
+            scaledValueY = lastValueY + ydecelrev;
           }
         }
       }
@@ -210,23 +224,35 @@ void loop() {
       } else {
         joystickData.servoS = atan2(-scaledValueY, -scaledValueX) * 57.29578;
       }
-      Serial.print(xValue1); Serial.print(",");
-      Serial.print(yValue1); Serial.print(",");
-      Serial.print(xValue2); Serial.print(",");
-      Serial.print(yValue2); Serial.print(",   ");
-      Serial.print(joystickData.M1); Serial.print(",");
-      Serial.print(joystickData.M2); Serial.print(",");
-      Serial.print(joystickData.servoA); Serial.print(",");
-      Serial.print(joystickData.servoC); Serial.print(",");
-      Serial.print(joystickData.servoS); Serial.println();
-
+      /*
+      Serial.print(xValue1);
+      Serial.print(",");
+      Serial.print(yValue1);
+      Serial.print(",");
+      Serial.print(xValue2);
+      Serial.print(",");
+      Serial.print(yValue2);
+      Serial.print(",   ");
+      Serial.print(joystickData.M1);
+      Serial.print(",");
+      Serial.print(joystickData.M2);
+      Serial.print(",");
+      Serial.print(joystickData.servoA);
+      Serial.print(",");
+      Serial.print(joystickData.servoC);
+      Serial.print(",");
+      Serial.print(joystickData.servoS);
+      Serial.println();
+*/
       // Send joystick data via bluetooth
-      joystickData.headerbytes = 0x2655; //yang dikirim byte kecil dulu (litle endian) jadi 0x55 lalu 0x26
+      joystickData.headerbytes = 0x2655;  //yang dikirim byte kecil dulu (litle endian) jadi 0x55 lalu 0x26
       //btserial.println(joystickData.M1);
-      btserial.write((uint8_t*) &joystickData, sizeof(joystickData));
-
+      btserial.write((uint8_t*)&joystickData, sizeof(joystickData));
     }
-    if (t - tlastsend > 10) ledoff();
+    if (t - tlastsend > 10) {
+      ledoff();
+      btserial.flush();
+    }
   }
   //keluar dari sini berarti putus koneksi
   connected = false;
