@@ -1,16 +1,15 @@
+# Joystick
+The right joystick is for the lower servo. If moved right or left, the wheels connected to the servo will follow the direction. If moved diagonally, the wheels will be set to diagonal (to move in one direction).
 
-# joystick
-joystick kanan buat servo bawah kalo ke kanan / kiri roda yang ke servona ikut ke kanan dan kiri kalau diagonal rodanya akan ke set ke diagonal (untuk bergerak satu arah)
+The left joystick is for moving forward, backward, and rotating left and right.
 
-joystick kiri untuk menggerakan depan belakang muter kanan dan kiri 
+# Buttons
 
-# Tombol
+Button 1 to raise the Gripper Arm.
+Button 2 to lower the Gripper Arm.
 
-Tombol 1 untuk menaikan Lengan Capitan
-Tombol 2 untuk menurunkan Lengan Capitan
+Button 3 for the gripper (1x click to grip, click again to open the gripper) ((Additional idea: if clicked again while gripping midway, it will cancel the grip))
 
-Tombol 3 untuk capitan (1x click nyapit, click lagi membuka capit) ((Ide tambahan : pas lagi nyapit tengah tengah kalau di click lagi di batalkan))
-
-# Rumus maju 
+# Forward Movement Formula
 
 ((Value - 2048) / 2048 )* 100
